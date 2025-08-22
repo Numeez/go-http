@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"github.com/Numeez/go-http/internal/headers"
 	"github.com/Numeez/go-http/internal/request"
 	"github.com/Numeez/go-http/internal/response"
 	"github.com/Numeez/go-http/internal/server"
@@ -49,6 +53,13 @@ func respond200() []byte {
   </body>
 </html>`)
 }
+func toStr(data []byte) string {
+	out := ""
+	for _, d := range data {
+		out += fmt.Sprintf("%02x", d)
+	}
+	return out
+}
 func main() {
 	server, err := server.Serve(port, func(w *response.Writer, req *request.Request) *server.HandlerError {
 		h := response.GetDefaultHeaders(0)
@@ -60,10 +71,45 @@ func main() {
 		} else if req.RequestLine.RequestTarget == "/myproblem" {
 			body = respond500()
 			status = response.HttpStatusBadRequest
+		} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
+			traget := req.RequestLine.RequestTarget
+			resp, err := http.Get("https://httpbin.org" + traget[len("/httpbin/"):])
+			if err != nil {
+				body = respond500()
+				status = response.HttpStatusBadRequest
+			} else {
+				_ = w.WriteStatusLine(response.HttpStatusOk)
+				h.Delete("Content-Length")
+				h.Set("transfer-encoding", "chunked")
+				h.Replace("Content-Type", "text/plain")
+				h.Set("Trailer", "X-Content-SHA256")
+				h.Set("Trailer", "X-Content-Length")
+				_ = w.WriteHeaders(h)
+				fullBody := []byte{}
+				for {
+					data := make([]byte, 32)
+					n, err := resp.Body.Read(data)
+					if err != nil {
+						break
+					}
+					fullBody = append(fullBody, data[:n]...)
+					_, _ = w.WriteBody([]byte(fmt.Sprintf("%x\r\n", n)))
+					_, _ = w.WriteBody(data[:n])
+					_, _ = w.WriteBody([]byte("\r\n"))
+				}
+				_, _ = w.WriteBody([]byte("0\r\n"))
+				tailer := headers.NewHeaders()
+				out := sha256.Sum256(fullBody)
+				tailer.Set("X-Content-SHA256", toStr(out[:])) 
+				tailer.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+				_ = w.WriteHeaders(*tailer)
+			}
+			return nil
+
 		}
 		_ = w.WriteStatusLine(status)
-		h.Replace("Content-length", fmt.Sprintf("%d", len(body))) 
-		h.Replace("Content-Type","text/html; charset=utf-8")
+		h.Replace("Content-length", fmt.Sprintf("%d", len(body)))
+		h.Replace("Content-Type", "text/html; charset=utf-8")
 		_ = w.WriteHeaders(h)
 		_, _ = w.WriteBody(body)
 

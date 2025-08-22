@@ -39,6 +39,9 @@ func (h *Headers) Get(name string) (string, bool) {
 	str, ok := h.headers[strings.ToLower(name)]
 	return str, ok
 }
+func (h *Headers) Delete(name string) {
+	delete(h.headers, name)
+}
 
 func (h *Headers) Set(name, value string) {
 	name = strings.ToLower(name)
