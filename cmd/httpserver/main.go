@@ -71,6 +71,19 @@ func main() {
 		} else if req.RequestLine.RequestTarget == "/myproblem" {
 			body = respond500()
 			status = response.HttpStatusBadRequest
+		} else if req.RequestLine.RequestTarget == "/video" {
+			f, err := os.ReadFile("assets/vim.mp4")
+			if err != nil {
+				body = respond500()
+				status = response.HttpStatusBadRequest
+			}
+			h.Replace("content-type", "video.mp4")
+			h.Replace("content-length", fmt.Sprintf("%d", len(f)))
+			_ = w.WriteStatusLine(response.HttpStatusOk)
+			_ = w.WriteHeaders(h)
+			_, _ = w.WriteBody(f)
+			return nil
+
 		} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
 			traget := req.RequestLine.RequestTarget
 			resp, err := http.Get("https://httpbin.org" + traget[len("/httpbin/"):])
@@ -100,7 +113,7 @@ func main() {
 				_, _ = w.WriteBody([]byte("0\r\n"))
 				tailer := headers.NewHeaders()
 				out := sha256.Sum256(fullBody)
-				tailer.Set("X-Content-SHA256", toStr(out[:])) 
+				tailer.Set("X-Content-SHA256", toStr(out[:]))
 				tailer.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
 				_ = w.WriteHeaders(*tailer)
 			}
