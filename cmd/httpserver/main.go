@@ -62,7 +62,7 @@ func main() {
 			status = response.HttpStatusBadRequest
 		}
 		_ = w.WriteStatusLine(status)
-		h.Replace("Content-length", fmt.Sprintf("%d", len(body)))
+		h.Replace("Content-length", fmt.Sprintf("%d", len(body))) 
 		h.Replace("Content-Type","text/html; charset=utf-8")
 		_ = w.WriteHeaders(h)
 		_, _ = w.WriteBody(body)
