@@ -1,5 +1,3 @@
-It is a custom implementation of  http protocol over tcp
-
 # 🌐 go-http
 
 A lightweight HTTP server written **from scratch in Go** — without relying on Go's built-in `net/http` package.  
